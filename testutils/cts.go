@@ -24,8 +24,8 @@ func StartCTS(t *testing.T, configPath string, opts ...string) func(t *testing.T
 	opts = append(opts, fmt.Sprintf("--config-file=%s", configPath))
 	cmd := exec.Command("consul-terraform-sync", opts...)
 	// uncomment to see logs
-	// cmd.Stdout = os.Stdout
-	// cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	// run CTS in once-mode
 	for _, opt := range opts {

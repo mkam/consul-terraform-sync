@@ -11,13 +11,12 @@ import (
 
 	"github.com/hashicorp/consul-terraform-sync/config"
 	ctsVersion "github.com/hashicorp/consul-terraform-sync/version"
-	"github.com/hashicorp/go-checkpoint"
 	goVersion "github.com/hashicorp/go-version"
 	"github.com/hashicorp/terraform-exec/tfexec"
 	"github.com/hashicorp/terraform-exec/tfinstall"
 )
 
-const fallbackTFVersion = "0.13.5"
+const fallbackTFVersion = "0.15.0-rc2"
 
 // TerraformVersion is the version of Terraform CLI for the Terraform driver.
 var TerraformVersion *goVersion.Version
@@ -65,6 +64,7 @@ func InstallTerraform(ctx context.Context, conf *config.TerraformConfig) error {
 
 	// Set the global variable to the installed version
 	TerraformVersion = tfVersion
+	fmt.Printf("\n\n******** Using Terraform Version: %v\n\n\n", TerraformVersion)
 	return nil
 }
 
@@ -112,12 +112,12 @@ func verifyInstalledTF(ctx context.Context, conf *config.TerraformConfig) (*goVe
 		return nil, false, err
 	}
 
-	if !ctsVersion.TerraformConstraint.Check(tfVersion) {
-		log.Printf("[ERR] (driver.terraform) Terraform found in path %s is "+
-			"version %q and does not satisfy the constraint %q.",
-			tfPath, tfVersion.String(), ctsVersion.CompatibleTerraformVersionConstraint)
-		return tfVersion, false, nil
-	}
+	// if !ctsVersion.TerraformConstraint.Check(tfVersion) {
+	// 	log.Printf("[ERR] (driver.terraform) Terraform found in path %s is "+
+	// 		"version %q and does not satisfy the constraint %q.",
+	// 		tfPath, tfVersion.String(), ctsVersion.CompatibleTerraformVersionConstraint)
+	// 	return tfVersion, false, nil
+	// }
 
 	if err := isTFCompatible(conf, tfVersion); err != nil {
 		return tfVersion, false, err
@@ -157,18 +157,18 @@ func isTFCompatible(conf *config.TerraformConfig, version *goVersion.Version) er
 //  Sync, the fall back version 0.13.5 is downloaded.
 func installTerraform(ctx context.Context, conf *config.TerraformConfig) (*goVersion.Version, error) {
 	var v *goVersion.Version
-	if conf.Version != nil && *conf.Version != "" {
-		v = goVersion.Must(goVersion.NewVersion(*conf.Version))
-	} else {
-		// Fetch the latest
-		resp, err := checkpoint.Check(&checkpoint.CheckParams{Product: "terraform"})
-		if err != nil {
-			log.Printf("[ERR] (driver.terraform) error fetching Terraform versions "+
-				"from Checkpoint: %s", err)
-		} else if resp.CurrentVersion != "" {
-			v = goVersion.Must(goVersion.NewVersion(resp.CurrentVersion))
-		}
-	}
+	// if conf.Version != nil && *conf.Version != "" {
+	// 	v = goVersion.Must(goVersion.NewVersion(*conf.Version))
+	// } else {
+	// 	Fetch the latest
+	// 	resp, err := checkpoint.Check(&checkpoint.CheckParams{Product: "terraform"})
+	// 	if err != nil {
+	// 		log.Printf("[ERR] (driver.terraform) error fetching Terraform versions "+
+	// 			"from Checkpoint: %s", err)
+	// 	} else if resp.CurrentVersion != "" {
+	// 		v = goVersion.Must(goVersion.NewVersion(resp.CurrentVersion))
+	// 	}
+	// }
 	if v == nil || !ctsVersion.TerraformConstraint.Check(v) {
 		// Configured version shouldn't be invalid our outside of the constraint at
 		// this point if the configuration was validated.
