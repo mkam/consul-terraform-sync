@@ -2,6 +2,7 @@ package tmplfunc
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -25,6 +26,7 @@ func HCLMap(meta ServicesMeta) template.FuncMap {
 	tmplFuncs["joinStrings"] = joinStringsFunc
 	tmplFuncs["HCLService"] = hclServiceFunc(meta)
 	tmplFuncs["HCLServiceTags"] = hclServiceTagsFunc()
+	tmplFuncs["regexMatch"] = regexMatch
 	return tmplFuncs
 }
 
@@ -60,4 +62,14 @@ func hclServiceTagsFunc() func(tags *dep.ServiceTags) string {
 
 		return fmt.Sprintf("[%s]", strings.Join(t, ", "))
 	}
+}
+
+// regexMatch returns true or false if the string matches
+// the given regular expression
+func regexMatch(re, s string) (bool, error) {
+	compiled, err := regexp.Compile(re)
+	if err != nil {
+		return false, err
+	}
+	return compiled.MatchString(s), nil
 }

@@ -22,6 +22,10 @@ type Condition interface {
 	// include the condition variable.
 	SourceIncludesVariable() bool
 
+	// ServicesAppended returns if the services variable has been appended
+	// to the template content.
+	ServicesAppended() bool
+
 	// appendModuleAttribute writes to an HCL module body the condition variable
 	// as a module argument in main.tf file.
 	// module "name" {
@@ -40,23 +44,51 @@ type Condition interface {
 
 // ServicesCondition handles appending templating for the services run condition
 // This is the default run condition
-type ServicesCondition struct{}
+type ServicesCondition struct {
+	Regexp string
+}
 
 func (c ServicesCondition) SourceIncludesVariable() bool {
 	return false
 }
 
+func (c ServicesCondition) ServicesAppended() bool {
+	return c.Regexp != ""
+}
+
 func (c ServicesCondition) appendModuleAttribute(body *hclwrite.Body) {}
 
-func (c ServicesCondition) appendTemplate(io.Writer) error {
-	// no-op: services condition currently requires no additional condition
-	// templating. it relies on the monitoring template as the run condition
+func (c ServicesCondition) appendTemplate(w io.Writer) error {
+	if c.Regexp != "" {
+		_, err := fmt.Fprintf(w, regexServicesTmpl, c.Regexp)
+		if err != nil {
+			log.Printf("[WARN] (templates.tftmpl) unable to write service condition template")
+			return err
+		}
+		return nil
+
+	}
 	return nil
 }
 
 func (c ServicesCondition) appendVariable(io.Writer) error {
 	return nil
 }
+
+const regexServicesTmpl = `
+{{- with $allCatalogServices := services }}
+services = {
+  {{- range $cs := $allCatalogServices }}
+    {{- if regexMatch "%s" $cs.Name }}
+      {{- with $srv := service $cs.Name }}
+        {{- range $i, $s := $srv}}
+  "{{ joinStrings "." .ID .Node .Namespace .NodeDatacenter }}" = {
+{{ HCLService $s | indent 4 }}
+  },
+  {{- end}}{{- end}}{{- end}}{{- end}}
+}
+{{- end}}
+`
 
 // CatalogServicesCondition handles appending templating for the catalog-service
 // run condition
@@ -70,6 +102,10 @@ type CatalogServicesCondition struct {
 
 func (c CatalogServicesCondition) SourceIncludesVariable() bool {
 	return c.SourceIncludesVar
+}
+
+func (c CatalogServicesCondition) ServicesAppended() bool {
+	return false
 }
 
 func (c CatalogServicesCondition) appendModuleAttribute(body *hclwrite.Body) {

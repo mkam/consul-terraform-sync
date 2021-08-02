@@ -23,10 +23,12 @@ func newTFVarsTmpl(w io.Writer, filename string, input *RootModuleInputData) err
 		}
 	}
 
-	// monitoring services template
+	// monitoring services template, skipped if set as part of condition
 	hclFile := hclwrite.NewEmptyFile()
-	body := hclFile.Body()
-	appendRawServiceTemplateValues(body, input.Services)
+	if input.Condition == nil || !input.Condition.ServicesAppended() {
+		body := hclFile.Body()
+		appendRawServiceTemplateValues(body, input.Services)
+	}
 
 	_, err := hclFile.WriteTo(w)
 	return err
