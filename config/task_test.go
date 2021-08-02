@@ -426,6 +426,18 @@ func TestTaskConfig_Validate(t *testing.T) {
 			true,
 		},
 		{
+			"valid (no services with services condition regexp)",
+			&TaskConfig{
+				Name:      String("task"),
+				Source:    String("source"),
+				Providers: []string{"providerA", "providerB"},
+				Condition: &ServicesConditionConfig{
+					Regexp: String(".*"),
+				},
+			},
+			true,
+		},
+		{
 			"missing name",
 			&TaskConfig{Services: []string{"service"}, Source: String("source")},
 			false,
@@ -503,6 +515,25 @@ func TestTaskConfig_Validate(t *testing.T) {
 				Services:  []string{"serviceA", "serviceB"},
 				Source:    String("source"),
 				Providers: []string{"providerA", "providerA.alias"},
+			},
+			false,
+		},
+		{
+			"invalid service condition (bad regexp)",
+			&TaskConfig{
+				Name:      String("task"),
+				Source:    String("source"),
+				Condition: &ServicesConditionConfig{Regexp: String("*")},
+			},
+			false,
+		},
+		{
+			"services and service condition regexp both provided",
+			&TaskConfig{
+				Name:      String("task"),
+				Source:    String("source"),
+				Services:  []string{"serviceA", "serviceB"},
+				Condition: &ServicesConditionConfig{Regexp: String("^service.*")},
 			},
 			false,
 		},
