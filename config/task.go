@@ -281,6 +281,8 @@ func (c *TaskConfig) Validate() error {
 					"task.condition.regexp or at least one service in " +
 					"task.services to be configured")
 			}
+		case *ConsulKVConditionConfig:
+			return fmt.Errorf("at least one service must be configured")
 		}
 	} else {
 		switch cond := c.Condition.(type) {
