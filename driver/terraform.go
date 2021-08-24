@@ -530,6 +530,9 @@ func (tf *Terraform) initTaskTemplate() error {
 	case *config.CatalogServicesConditionConfig:
 		tf.template = notifier.NewCatalogServicesRegistration(tmpl,
 			len(services))
+	case *config.ConsulKVConditionConfig:
+		tf.template = notifier.NewConsulKV(tmpl,
+			len(services))
 	default:
 		tf.template = tmpl
 	}
