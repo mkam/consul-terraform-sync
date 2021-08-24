@@ -50,6 +50,16 @@ func (n *ConsulKV) Notify(d interface{}) (notify bool) {
 	log.Printf("[DEBUG] (notifier.cs) received dependency change type %T", d)
 	notify = false
 
+	if exists, ok := d.(dep.KVExists); ok {
+		log.Printf("[DEBUG] (notifier.cs) notify Consul KV pair change")
+		notify = true
+
+		if !n.once && bool(exists) {
+			// expect a KvValue change for once mode
+			n.depTotal++
+		}
+	}
+
 	if !n.once {
 		n.counter++
 		// after all dependencies are received, notify so once-mode can complete
