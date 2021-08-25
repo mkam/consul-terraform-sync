@@ -66,114 +66,12 @@ func ctsSetup(t *testing.T, srv *testutil.TestServer, tempDir string, taskConfig
 	return cts
 }
 
-/*
-Source Existing New
-Single
-Recurse
-
-add, update, remove
-
-key exists initially
-key doesn't exist initially
-
-recurse, vars
-
-false, false
-false true
-make sure that it doesn't take a sub key
-
-true false
-true true
-make sure that it does take a sub key
-make sure it doesn't take a rando key
-
-
-Checking for none:
-service change doesn't affect
-bad key
-*/
-
-// Tests new key
+// TestConditionConsulKV_NewKey runs the CTS binary using a task with a consul-kv
+// condition block. The monitored KV pair will not exist initially in Consul. The
+// test will add the key, update the value, delete the key, checking that the task
+// is triggered each time. It will also test that an unrelated key not on the given
+// path does not trigger the task.
 func TestConditionConsulKV_NewKey(t *testing.T) {
-	t.Parallel()
-
-	// Set up Consul server
-	srv := newTestConsulServer(t)
-	t.Cleanup(func() {
-		srv.Stop()
-	})
-
-	// Configure and start CTS
-	taskName := "consul_kv_condition_new"
-	tempDir := fmt.Sprintf("%s%s", tempDirPrefix, taskName)
-	path := "test-key"
-	config := kvTaskConfig(taskName, kvTaskOpts{
-		path:              path,
-		recurse:           false,
-		sourceIncludesVar: true,
-	})
-	cts := ctsSetup(t, srv, tempDir, config)
-
-	// 0. Confirm only one event. Confirm empty var consul_kv
-	eventCountBase := eventCount(t, taskName, cts.Port())
-	require.Equal(t, 1, eventCountBase)
-
-	workingDir := fmt.Sprintf("%s/%s", tempDir, taskName)
-	content := testutils.CheckFile(t, true, workingDir, tftmpl.TFVarsFilename)
-	assert.Contains(t, content, "consul_kv = {\n}")
-
-	resourcesPath := filepath.Join(workingDir, resourcesDir)
-	testutils.CheckFile(t, true, resourcesPath, "api.txt")
-	testutils.CheckFile(t, true, resourcesPath, "web.txt")
-	testutils.CheckFile(t, false, resourcesPath, "db.txt")
-
-	// Create key that is monitored by task, check for event
-	now := time.Now()
-	value := "test-value"
-	srv.SetKVString(t, path, value)
-	api.WaitForEvent(t, cts, taskName, now, defaultWaitForEvent)
-	eventCountNow := eventCount(t, taskName, cts.Port())
-	eventCountBase++
-	require.Equal(t, eventCountBase, eventCountNow,
-		"event count did not increment once. task was not triggered as expected")
-	content = testutils.CheckFile(t, true, resourcesPath, fmt.Sprintf("%s.txt", path))
-	assert.Equal(t, value, content)
-
-	// Update the key value, check for event
-	now = time.Now()
-	value = "new-test-value"
-	srv.SetKVString(t, path, value)
-	api.WaitForEvent(t, cts, taskName, now, defaultWaitForEvent)
-	eventCountNow = eventCount(t, taskName, cts.Port())
-	eventCountBase++
-	require.Equal(t, eventCountBase, eventCountNow,
-		"event count did not increment once. task was not triggered as expected")
-	content = testutils.CheckFile(t, true, resourcesPath, fmt.Sprintf("%s.txt", path))
-	assert.Equal(t, value, content)
-
-	// Remove the key, check for event
-	now = time.Now()
-	testutils.DeleteKV(t, srv, path)
-	api.WaitForEvent(t, cts, taskName, now, defaultWaitForEvent)
-	eventCountNow = eventCount(t, taskName, cts.Port())
-	eventCountBase++
-	require.Equal(t, eventCountBase, eventCountNow,
-		"event count did not increment once. task was not triggered as expected")
-	content = testutils.CheckFile(t, false, resourcesPath, fmt.Sprintf("%s.txt", path))
-
-	// Add a key prefixed by the monitored path, check for no event
-	now = time.Now()
-	prefixedKey := fmt.Sprintf("%s/sub-key", path)
-	srv.SetKVString(t, prefixedKey, "test")
-	time.Sleep(defaultWaitForNoEvent)
-	eventCountNow = eventCount(t, taskName, cts.Port())
-	require.Equal(t, eventCountBase, eventCountNow,
-		"change in event count. task was unexpectedly triggered")
-	testutils.CheckFile(t, false, resourcesPath, fmt.Sprintf("%s.txt", prefixedKey))
-}
-
-// testing out dd
-func TestConditionConsulKV(t *testing.T) {
 	t.Parallel()
 
 	testcases := []struct {
@@ -214,18 +112,13 @@ func TestConditionConsulKV(t *testing.T) {
 			})
 			cts := ctsSetup(t, srv, tempDir, config)
 
-			// 0. Confirm only one event. Confirm empty var consul_kv
+			// Confirm only one event. Confirm empty var consul_kv
 			eventCountBase := eventCount(t, taskName, cts.Port())
 			require.Equal(t, 1, eventCountBase)
-
 			workingDir := fmt.Sprintf("%s/%s", tempDir, taskName)
+			resourcesPath := filepath.Join(workingDir, resourcesDir)
 			content := testutils.CheckFile(t, true, workingDir, tftmpl.TFVarsFilename)
 			assert.Contains(t, content, "consul_kv = {\n}")
-
-			resourcesPath := filepath.Join(workingDir, resourcesDir)
-			testutils.CheckFile(t, true, resourcesPath, "api.txt")
-			testutils.CheckFile(t, true, resourcesPath, "web.txt")
-			testutils.CheckFile(t, false, resourcesPath, "db.txt")
 
 			// Create key that is monitored by task, check for event
 			now := time.Now()
@@ -274,55 +167,13 @@ func TestConditionConsulKV(t *testing.T) {
 	}
 }
 
-// func TestConditionConsulKV_ExistingKey(t *testing.T) {
-// 	t.Parallel()
-
-// 	// Set up Consul server, add a key
-// 	srv := newTestConsulServer(t)
-// 	t.Cleanup(func() {
-// 		srv.Stop()
-// 	})
-// 	path := "test-key"
-// 	value := "test-value"
-// 	srv.SetKVString(t, path, value)
-
-// 	// Configure and start CTS
-// 	taskName := "consul_kv_condition_existing"
-// 	tempDir := fmt.Sprintf("%s%s", tempDirPrefix, taskName)
-// 	config := kvTaskConfig(taskName, kvTaskOpts{
-// 		path:              path,
-// 		recurse:           false,
-// 		sourceIncludesVar: true,
-// 	})
-// 	cts := ctsSetup(t, srv, tempDir, config)
-
-// 	// 0. Confirm only one event
-// 	eventCountBase := eventCount(t, taskName, cts.Port())
-// 	require.Equal(t, 1, eventCountBase)
-
-// 	workingDir := fmt.Sprintf("%s/%s", tempDir, taskName)
-// 	resourcesPath := filepath.Join(workingDir, resourcesDir)
-
-// 	content := testutils.CheckFile(t, true, resourcesPath, fmt.Sprintf("%s.txt", path))
-// 	assert.Equal(t, value, content)
-
-// 	testutils.CheckFile(t, true, resourcesPath, "api.txt")
-// 	testutils.CheckFile(t, true, resourcesPath, "web.txt")
-// 	testutils.CheckFile(t, false, resourcesPath, "db.txt")
-
-// 	// Update key that is monitored by task, check for event
-// 	now := time.Now()
-// 	value = "new-test-value"
-// 	srv.SetKVString(t, path, value)
-// 	api.WaitForEvent(t, cts, taskName, now, defaultWaitForEvent)
-// 	eventCountNow := eventCount(t, taskName, cts.Port())
-// 	eventCountBase++
-// 	require.Equal(t, eventCountBase, eventCountNow,
-// 		"event count did not increment once. task was not triggered as expected")
-// 	content = testutils.CheckFile(t, true, resourcesPath, fmt.Sprintf("%s.txt", path))
-// 	assert.Equal(t, value, content)
-
-// }
+// TestConditionConsulKV_ExistingKey runs the CTS binary using a task with a consul-kv
+// condition block. The monitored KV pair will exist initially in Consul. The
+// test will update the value, delete the key, checking that the task
+// is triggered each time.
+//
+// In the case of recurse=true, instead of updating an existing key, the test will
+// add a key that is prefixed by the path.
 func TestConditionConsulKV_ExistingKey(t *testing.T) {
 	t.Parallel()
 
@@ -367,12 +218,8 @@ func TestConditionConsulKV_ExistingKey(t *testing.T) {
 			// 0. Confirm only one event
 			eventCountBase := eventCount(t, taskName, cts.Port())
 			require.Equal(t, 1, eventCountBase)
-
 			workingDir := fmt.Sprintf("%s/%s", tempDir, taskName)
 			resourcesPath := filepath.Join(workingDir, resourcesDir)
-			testutils.CheckFile(t, true, resourcesPath, "api.txt")
-			testutils.CheckFile(t, true, resourcesPath, "web.txt")
-			testutils.CheckFile(t, false, resourcesPath, "db.txt")
 			content := testutils.CheckFile(t, true, resourcesPath, fmt.Sprintf("%s.txt", path))
 			assert.Equal(t, value, content)
 
@@ -440,7 +287,7 @@ func TestConditionConsulKV_SuppressTriggers(t *testing.T) {
 			})
 			cts := ctsSetup(t, srv, tempDir, config)
 
-			// Confirm one event at startup
+			// Confirm one event at startup, check services files
 			eventCountBase := eventCount(t, taskName, cts.Port())
 			require.Equal(t, 1, eventCountBase)
 			workingDir := fmt.Sprintf("%s/%s", tempDir, taskName)
@@ -450,7 +297,7 @@ func TestConditionConsulKV_SuppressTriggers(t *testing.T) {
 			testutils.CheckFile(t, true, resourcesPath, "web.txt")
 			testutils.CheckFile(t, false, resourcesPath, "db.txt")
 
-			// Deregister a service, confirm no event
+			// Deregister a service, confirm no event and no update to service file
 			testutils.DeregisterConsulService(t, srv, "web")
 			time.Sleep(defaultWaitForNoEvent)
 			eventCountNow := eventCount(t, taskName, cts.Port())
