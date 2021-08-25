@@ -94,7 +94,7 @@ func DeregisterConsulService(tb testing.TB, srv *testutil.TestServer, id string)
 
 func DeleteKV(tb testing.TB, srv *testutil.TestServer, key string) {
 	u := fmt.Sprintf("http://%s/v1/kv/%s", srv.HTTPAddr, key)
-	resp := RequestHTTP(tb, http.MethodPut, u, "")
+	resp := RequestHTTP(tb, http.MethodDelete, u, "")
 	defer resp.Body.Close()
 }
 
