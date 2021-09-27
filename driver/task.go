@@ -317,47 +317,7 @@ func (t *Task) configureRootModuleInput(input *tftmpl.RootModuleInputData) {
 		}
 	}
 
-	var condition tftmpl.Condition
-	switch v := t.condition.(type) {
-	case *config.CatalogServicesConditionConfig:
-		condition = &tftmpl.CatalogServicesCondition{
-			CatalogServicesMonitor: tftmpl.CatalogServicesMonitor{
-				Regexp:     *v.Regexp,
-				Datacenter: *v.Datacenter,
-				Namespace:  *v.Namespace,
-				NodeMeta:   v.NodeMeta,
-			},
-			SourceIncludesVar: *v.SourceIncludesVar,
-		}
-	case *config.ServicesConditionConfig:
-		condition = &tftmpl.ServicesCondition{
-			ServicesMonitor: tftmpl.ServicesMonitor{
-				Regexp: *v.Regexp,
-			},
-			// always set services variable
-			SourceIncludesVar: true,
-		}
-	case *config.ConsulKVConditionConfig:
-		condition = &tftmpl.ConsulKVCondition{
-			ConsulKVMonitor: tftmpl.ConsulKVMonitor{
-				Path:       *v.Path,
-				Datacenter: *v.Datacenter,
-				Recurse:    *v.Recurse,
-				Namespace:  *v.Namespace,
-			},
-			SourceIncludesVar: *v.SourceIncludesVar,
-		}
-	case *config.ScheduleConditionConfig:
-		condition = &tftmpl.ServicesCondition{
-			SourceIncludesVar: true,
-		}
-	default:
-		// expected only for test scenarios
-		t.logger.Warn("task condition config unset. defaulting to services condition",
-			"task_name", t.name)
-		condition = &tftmpl.ServicesCondition{}
-	}
-	input.Condition = condition
+	input.Condition = t.configureCondition()
 
 	var sourceInput tftmpl.SourceInput
 	switch v := t.sourceInput.(type) {
@@ -384,6 +344,50 @@ func (t *Task) configureRootModuleInput(input *tftmpl.RootModuleInputData) {
 	input.Variables = make(hcltmpl.Variables)
 	for k, v := range t.variables {
 		input.Variables[k] = v
+	}
+}
+
+// configureCondition creates and returns a condition template based on the
+// condition type of the task
+func (t *Task) configureCondition() tftmpl.Condition {
+	switch v := t.condition.(type) {
+	case *config.CatalogServicesConditionConfig:
+		return &tftmpl.CatalogServicesCondition{
+			CatalogServicesMonitor: tftmpl.CatalogServicesMonitor{
+				Regexp:     *v.Regexp,
+				Datacenter: *v.Datacenter,
+				Namespace:  *v.Namespace,
+				NodeMeta:   v.NodeMeta,
+			},
+			SourceIncludesVar: *v.SourceIncludesVar,
+		}
+	case *config.ServicesConditionConfig:
+		return &tftmpl.ServicesCondition{
+			ServicesMonitor: tftmpl.ServicesMonitor{
+				Regexp: *v.Regexp,
+			},
+			// always set services variable
+			SourceIncludesVar: true,
+		}
+	case *config.ConsulKVConditionConfig:
+		return &tftmpl.ConsulKVCondition{
+			ConsulKVMonitor: tftmpl.ConsulKVMonitor{
+				Path:       *v.Path,
+				Datacenter: *v.Datacenter,
+				Recurse:    *v.Recurse,
+				Namespace:  *v.Namespace,
+			},
+			SourceIncludesVar: *v.SourceIncludesVar,
+		}
+	case *config.ScheduleConditionConfig:
+		return &tftmpl.ServicesCondition{
+			SourceIncludesVar: true,
+		}
+	default:
+		// expected only for test scenarios
+		t.logger.Warn("task condition config unset. defaulting to services condition",
+			"task_name", t.name)
+		return &tftmpl.ServicesCondition{}
 	}
 }
 
