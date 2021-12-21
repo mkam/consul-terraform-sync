@@ -123,6 +123,51 @@ func TestTaskLifeCycleHandler_CreateTask(t *testing.T) {
 	}
 }
 
+func TestTaskLifeCycleHandler_CreateTask_RunInspect(t *testing.T) {
+	t.Parallel()
+	c, d := generateTaskLifecycleHandlerTestDependencies()
+	// Expected driver mock calls and returns
+	taskName := "inspected_task"
+	request := fmt.Sprintf(`{
+		"name": "%s",
+		"services": ["api"],
+		"source": "mkam/hello/cts"
+	}`, taskName)
+	conf := driver.TaskConfig{
+		Name: taskName,
+	}
+	task, err := driver.NewTask(conf)
+	require.NoError(t, err)
+
+	d.On("Task").Return(task)
+	d.On("InitTask", mock.Anything).Return(nil)
+	d.On("RenderTemplate", mock.Anything).Return(true, nil)
+	d.On("InspectTask", mock.Anything).Return(driver.InspectPlan{}, nil)
+
+	resp := runTestCreateTask(t, c, "inspect", http.StatusOK, request)
+
+	// Check response, expect task and run
+	decoder := json.NewDecoder(resp.Body)
+	var actual taskResponse
+	err = decoder.Decode(&actual)
+	require.NoError(t, err)
+	expected := generateExpectedResponse(t, request)
+	plan := ""
+	expected.Run = &oapigen.Run{
+		Plan: &plan,
+	}
+	assert.Equal(t, expected, actual)
+	d.AssertExpectations(t)
+
+	// Check task not added to driver, no events registered
+	_, ok := c.drivers.Get(taskName)
+	require.False(t, ok)
+	checkTestEventCount(t, taskName, c.store, 0)
+
+	// Run the inspect a second time with same task, expect return 200 OK
+	runTestCreateTask(t, c, "inspect", http.StatusOK, request)
+}
+
 func TestTaskLifeCycleHandler_CreateTask_BadRequest(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
