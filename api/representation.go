@@ -110,12 +110,20 @@ func (tr TaskRequest) ToTaskConfig() (config.TaskConfig, error) {
 	if tr.Condition != nil {
 		if tr.Condition.Services != nil {
 			cond := &config.ServicesConditionConfig{
+				ServicesMonitorConfig: config.ServicesMonitorConfig{
+					Datacenter: tr.Condition.Services.Datacenter,
+					Namespace:  tr.Condition.Services.Namespace,
+					Filter:     tr.Condition.Services.Filter,
+				},
 				UseAsModuleInput: tr.Condition.Services.UseAsModuleInput,
 			}
 			if tr.Condition.Services.Names != nil && len(*tr.Condition.Services.Names) > 0 {
 				cond.Names = *tr.Condition.Services.Names
 			} else {
 				cond.Regexp = tr.Condition.Services.Regexp
+			}
+			if tr.Condition.Services.CtsUserDefinedMeta != nil {
+				cond.ServicesMonitorConfig.CTSUserDefinedMeta = tr.Condition.Services.CtsUserDefinedMeta.AdditionalProperties
 			}
 			tc.Condition = cond
 		} else if tr.Condition.ConsulKv != nil {
@@ -260,6 +268,12 @@ func oapigenTaskFromConfigTask(tc config.TaskConfig) oapigen.Task {
 		switch cond := tc.Condition.(type) {
 		case *config.ServicesConditionConfig:
 			services := &oapigen.ServicesCondition{
+				Datacenter: cond.Datacenter,
+				Namespace:  cond.Namespace,
+				Filter:     cond.Filter,
+				CtsUserDefinedMeta: &oapigen.ServicesCondition_CtsUserDefinedMeta{
+					AdditionalProperties: cond.CTSUserDefinedMeta,
+				},
 				UseAsModuleInput: cond.UseAsModuleInput,
 			}
 			if len(cond.Names) > 0 {
