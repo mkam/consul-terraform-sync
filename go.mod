@@ -2,6 +2,8 @@ module github.com/hashicorp/consul-terraform-sync
 
 go 1.16
 
+replace github.com/hashicorp/hcat => /Users/mkam/hashicorp/hcat
+
 require (
 	cloud.google.com/go v0.78.0 // indirect
 	cloud.google.com/go/storage v1.13.0 // indirect
