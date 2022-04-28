@@ -35,6 +35,8 @@ var _ ConsulClientInterface = (*ConsulClient)(nil)
 type ConsulClientInterface interface {
 	GetLicense(ctx context.Context, q *consulapi.QueryOptions) (string, error)
 	IsEnterprise(ctx context.Context) (bool, error)
+	RegisterService(ctx context.Context, s *consulapi.AgentServiceRegistration) error
+	DeregisterService(ctx context.Context, serviceID string) error
 }
 
 // ConsulClient is a client to the Consul API
@@ -174,4 +176,44 @@ func isConsulEnterprise(ctx context.Context, info ConsulAgentConfig) (bool, erro
 		return true, nil
 	}
 	return false, nil
+}
+
+// RegisterService registers a service through the Consul agent.
+func (c *ConsulClient) RegisterService(ctx context.Context, r *consulapi.AgentServiceRegistration) error {
+	desc := "AgentServiceRegister"
+
+	f := func(context.Context) error {
+		err := c.Agent().ServiceRegister(r)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	err := c.retry.Do(ctx, f, desc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeregisterService removes a service through the Consul agent.
+func (c *ConsulClient) DeregisterService(ctx context.Context, serviceID string) error {
+	desc := "AgentServiceDeregister"
+
+	f := func(context.Context) error {
+		err := c.Agent().ServiceDeregister(serviceID)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	err := c.retry.Do(ctx, f, desc)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
